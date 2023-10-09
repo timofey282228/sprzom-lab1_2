@@ -1,4 +1,7 @@
 use std::ops::{Add, Sub};
+use core::str::FromStr;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct UnsignedLongInt {
@@ -225,5 +228,45 @@ impl From<u64> for UnsignedLongInt {
         UnsignedLongInt {
             underlying_array: vec![value]
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct FromHexError;
+
+
+impl Display for FromHexError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", "Conversion from hex string resulted in an error")
+    }
+}
+
+impl std::error::Error for FromHexError {}
+
+impl FromStr for UnsignedLongInt {
+    type Err = FromHexError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut result = UnsignedLongInt::empty_with_capcity(s.len() / 16);
+        let mut digit = 0usize;
+        let mut digit_fill = 0u32;
+        for c in s.chars().rev() {
+            if let Some(d) = c.to_digit(16) {
+                let d = d as u64;
+                if result.underlying_array.len() == digit {
+                    result.underlying_array.push(d * 16u64.pow(digit_fill));
+                } else {
+                    result.underlying_array[digit] += d * 16u64.pow(digit_fill);
+                }
+                digit_fill += 1;
+                if digit_fill % 16 == 0 {
+                    digit_fill = 0;
+                    digit += 1;
+                }
+            } else {
+                return Err(FromHexError);
+            }
+        }
+
+        Ok(result)
     }
 }
