@@ -1,9 +1,9 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Mul, Sub};
 use core::str::FromStr;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct UnsignedLongInt {
     underlying_array: Vec<u64>,
 }
@@ -156,6 +156,22 @@ impl UnsignedLongInt {
 
         result
     }
+    fn mul(&self, rhs: &Self) -> Self {
+        let mut result = UnsignedLongInt::with_capacity(self.underlying_array.len());
+        let (shorter, longer) = if self.underlying_array.len() > rhs.underlying_array.len()
+        { (rhs, self) } else { (self, rhs) };
+
+        for i in 0..shorter.underlying_array.len() {
+            let mut temp = longer.mul_single_digit(shorter.underlying_array[i]);
+            // shift
+            for j in 0..i {
+                temp.underlying_array.insert(0, 0);
+            }
+            result = UnsignedLongInt::add(&result, &temp);
+        }
+
+        result
+    }
 }
 
 
@@ -223,6 +239,36 @@ impl Sub<UnsignedLongInt> for &UnsignedLongInt {
     }
 }
 
+impl Mul<UnsignedLongInt> for UnsignedLongInt {
+    type Output = UnsignedLongInt;
+
+    fn mul(self, rhs: Self) -> Self::Output { UnsignedLongInt::mul(&self, &rhs) }
+}
+
+impl Mul<&UnsignedLongInt> for &UnsignedLongInt {
+    type Output = UnsignedLongInt;
+
+    fn mul(self, rhs: &UnsignedLongInt) -> Self::Output {
+        UnsignedLongInt::mul(self, rhs)
+    }
+}
+
+impl Mul<&UnsignedLongInt> for UnsignedLongInt {
+    type Output = UnsignedLongInt;
+
+    fn mul(self, rhs: &UnsignedLongInt) -> Self::Output {
+        UnsignedLongInt::mul(&self, rhs)
+    }
+}
+
+impl Mul<UnsignedLongInt> for &UnsignedLongInt {
+    type Output = UnsignedLongInt;
+
+    fn mul(self, rhs: UnsignedLongInt) -> Self::Output {
+        UnsignedLongInt::mul(self, &rhs)
+    }
+}
+
 impl From<u64> for UnsignedLongInt {
     fn from(value: u64) -> Self {
         UnsignedLongInt {
@@ -268,5 +314,20 @@ impl FromStr for UnsignedLongInt {
         }
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn equality_1() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("DEADBEEFDEADBEEFDEADBEEF")?;
+        let b = UnsignedLongInt::from(u64::MAX);
+        let c = UnsignedLongInt::from_str("AABBCCDD")?;
+        assert_eq!((&a + &b) * &c, &a * &c + &b * &c);
+
+        Ok(())
     }
 }
