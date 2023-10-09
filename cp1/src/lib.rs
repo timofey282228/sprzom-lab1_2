@@ -1,11 +1,23 @@
 use std::ops::{Add, Mul, Sub};
 use core::str::FromStr;
 use std::error::Error;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, UpperHex};
 
 #[derive(Debug, PartialEq)]
 pub struct UnsignedLongInt {
     underlying_array: Vec<u64>,
+}
+
+impl Display for UnsignedLongInt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut hex_string = String::new();
+        for i in (0..self.underlying_array.len()).rev() {
+            let next_hexdigits = format!("{:X}", self.underlying_array[i]);
+            hex_string.push_str(&next_hexdigits);
+        }
+
+        write!(f, "{}", &hex_string)
+    }
 }
 
 impl UnsignedLongInt {
@@ -146,8 +158,8 @@ impl UnsignedLongInt {
         for i in 0..self.underlying_array.len() {
             let a = self.underlying_array[i] as u128;
             let temp: u128 = a * b + carry;
-            result.underlying_array.push((temp & 63u128) as u64);
-            carry = temp >> 6;
+            result.underlying_array.push((temp & (u64::MAX as u128)) as u64);
+            carry = temp >> 64;
         }
 
         if carry != 0 {
@@ -326,7 +338,47 @@ mod tests {
         let a = UnsignedLongInt::from_str("DEADBEEFDEADBEEFDEADBEEF")?;
         let b = UnsignedLongInt::from(u64::MAX);
         let c = UnsignedLongInt::from_str("AABBCCDD")?;
-        assert_eq!((&a + &b) * &c, &a * &c + &b * &c);
+        println!("{}", (&a + &b) * &c);
+        println!("{}", (&a * &c) + (&b * &c));
+        assert_eq!((&a + &b) * &c, (&a * &c) + (&b * &c));
+
+        Ok(())
+    }
+
+    #[test]
+    fn mul_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("DEADBEEFDEADBEEFDEADBEEF")?;
+        let b = UnsignedLongInt::from(u64::MAX);
+        let expected = UnsignedLongInt::from_str("deadbeefdeadbeeeffffffff2152411021524111")?;
+        println!("A: {}", &a);
+        println!("B: {}", &b);
+        println!("C: {}", &a * &b);
+        println!("Should be: {}", &expected);
+        assert_eq!(&a * &b, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn add_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("DEADBEEFDEADBEEFDEADBEEF")?;
+        let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
+        let c = &a + &b;
+        let expected = UnsignedLongInt::from_str("deadbf9bac9dbdceaa5b9ccc")?;
+        println!("A: {}\nB: {}\nC: {}\nShould be: {}", &a, &b, &c, &expected);
+        assert_eq!(c, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn mul_single_digit_test() -> Result<(), Box<dyn Error>>{
+        let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
+        let b = 0xffff;
+        let c = UnsignedLongInt::mul_single_digit(&a, b);
+        let expected = UnsignedLongInt::from_str("deace0421fbde0421fbde0414111")?;
+        println!("A: {}\nB: {}\nC: {}\nShould be: {}", &a, &b, &c, &expected);
+        assert_eq!(c, expected);
 
         Ok(())
     }
