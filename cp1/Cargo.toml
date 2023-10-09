@@ -1,5 +1,5 @@
 [package]
-name = "VLBigInts"
+name = "vl_big_ints"
 version = "0.1.0"
 edition = "2021"
 

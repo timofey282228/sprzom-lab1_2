@@ -1,7 +1,8 @@
-use std::ops::{Add, Mul, Sub};
 use core::str::FromStr;
 use std::error::Error;
-use std::fmt::{Display, Formatter, UpperHex};
+use std::fmt::{Display, Formatter};
+
+pub mod ops;
 
 #[derive(Debug, PartialEq)]
 pub struct UnsignedLongInt {
@@ -59,7 +60,7 @@ impl UnsignedLongInt {
         while current_digit < shorter.underlying_array.len() {
             let mut new_digit: u64 = shorter.underlying_array[current_digit];
             let mut temp_carry1: bool = false; // carry from carry addition
-            let mut temp_carry2: bool = false; // carry from `longer` digit addition
+            let temp_carry2: bool; // carry from `longer` digit addition
 
             // add carry from the previous operation
             if carry {
@@ -113,7 +114,7 @@ impl UnsignedLongInt {
         while current_digit < subtrahend.underlying_array.len() {
             let mut new_digit: u64 = minuend.underlying_array[current_digit];
             let mut temp_borrow1: bool = false;
-            let mut temp_borrow2: bool = false;
+            let temp_borrow2: bool;
 
             if borrow {
                 (new_digit, temp_borrow1) = new_digit.overflowing_sub(1);
@@ -176,7 +177,7 @@ impl UnsignedLongInt {
         for i in 0..shorter.underlying_array.len() {
             let mut temp = longer.mul_single_digit(shorter.underlying_array[i]);
             // shift
-            for j in 0..i {
+            for _ in 0..i {
                 temp.underlying_array.insert(0, 0);
             }
             result = UnsignedLongInt::add(&result, &temp);
@@ -186,98 +187,9 @@ impl UnsignedLongInt {
     }
 }
 
-
-impl Add<&UnsignedLongInt> for &UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn add(self, rhs: &UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::add(self, rhs)
-    }
-}
-
-impl Add<UnsignedLongInt> for UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn add(self, rhs: UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::add(&self, &rhs)
-    }
-}
-
-impl Add<&UnsignedLongInt> for UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn add(self, rhs: &UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::add(&self, rhs)
-    }
-}
-
-impl Add<UnsignedLongInt> for &UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn add(self, rhs: UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::add(self, &rhs)
-    }
-}
-
-impl Sub<UnsignedLongInt> for UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn sub(self, rhs: UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::sub(&self, &rhs)
-    }
-}
-
-impl Sub<&UnsignedLongInt> for &UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn sub(self, rhs: &UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::sub(self, rhs)
-    }
-}
-
-impl Sub<&UnsignedLongInt> for UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn sub(self, rhs: &UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::sub(&self, rhs)
-    }
-}
-
-impl Sub<UnsignedLongInt> for &UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn sub(self, rhs: UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::sub(self, &rhs)
-    }
-}
-
-impl Mul<UnsignedLongInt> for UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn mul(self, rhs: Self) -> Self::Output { UnsignedLongInt::mul(&self, &rhs) }
-}
-
-impl Mul<&UnsignedLongInt> for &UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn mul(self, rhs: &UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::mul(self, rhs)
-    }
-}
-
-impl Mul<&UnsignedLongInt> for UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn mul(self, rhs: &UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::mul(&self, rhs)
-    }
-}
-
-impl Mul<UnsignedLongInt> for &UnsignedLongInt {
-    type Output = UnsignedLongInt;
-
-    fn mul(self, rhs: UnsignedLongInt) -> Self::Output {
-        UnsignedLongInt::mul(self, &rhs)
+impl Default for UnsignedLongInt {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -292,14 +204,13 @@ impl From<u64> for UnsignedLongInt {
 #[derive(Debug, PartialEq, Eq)]
 pub struct FromHexError;
 
-
 impl Display for FromHexError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", "Conversion from hex string resulted in an error")
+        write!(f, "Conversion from hex string resulted in an error")
     }
 }
 
-impl std::error::Error for FromHexError {}
+impl Error for FromHexError {}
 
 impl FromStr for UnsignedLongInt {
     type Err = FromHexError;
@@ -372,11 +283,23 @@ mod tests {
     }
 
     #[test]
-    fn mul_single_digit_test() -> Result<(), Box<dyn Error>>{
+    fn mul_single_digit_test() -> Result<(), Box<dyn Error>> {
         let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
         let b = 0xffff;
         let c = UnsignedLongInt::mul_single_digit(&a, b);
         let expected = UnsignedLongInt::from_str("deace0421fbde0421fbde0414111")?;
+        println!("A: {}\nB: {}\nC: {}\nShould be: {}", &a, &b, &c, &expected);
+        assert_eq!(c, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn sub_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
+        let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
+        let c =  &a - &b;
+        let expected = UnsignedLongInt::from_str("deadbe4410bdc01112ffe112")?;
         println!("A: {}\nB: {}\nC: {}\nShould be: {}", &a, &b, &c, &expected);
         assert_eq!(c, expected);
 
