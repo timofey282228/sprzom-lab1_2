@@ -6,14 +6,14 @@ pub struct UnsignedLongInt {
 }
 
 impl UnsignedLongInt {
-    pub fn new() -> Self{
-        UnsignedLongInt{
+    pub fn new() -> Self {
+        UnsignedLongInt {
             underlying_array: vec![0u64]
         }
     }
 
-    pub fn with_capacity(min_length:usize) -> Self{
-        let mut new_int = UnsignedLongInt{
+    pub fn with_capacity(min_length: usize) -> Self {
+        let mut new_int = UnsignedLongInt {
             underlying_array: Vec::<u64>::with_capacity(min_length)
         };
         new_int.underlying_array.push(0u64);
@@ -21,8 +21,8 @@ impl UnsignedLongInt {
         new_int
     }
 
-    fn empty_with_capcity(capacity: usize) -> Self{
-        Self{
+    fn empty_with_capcity(capacity: usize) -> Self {
+        Self {
             underlying_array: Vec::with_capacity(capacity)
         }
     }
@@ -134,7 +134,27 @@ impl UnsignedLongInt {
         result.underlying_array.shrink_to_fit();
         result
     }
+
+    pub fn mul_single_digit(&self, rhs: u64) -> Self {
+        let mut result = UnsignedLongInt::empty_with_capcity(self.underlying_array.len() + 1);
+        let mut carry = 0u128;
+        let b = rhs as u128;
+
+        for i in 0..self.underlying_array.len() {
+            let a = self.underlying_array[i] as u128;
+            let temp: u128 = a * b + carry;
+            result.underlying_array.push((temp & 63u128) as u64);
+            carry = temp >> 6;
+        }
+
+        if carry != 0 {
+            result.underlying_array.push(carry as u64);
+        }
+
+        result
+    }
 }
+
 
 impl Add<&UnsignedLongInt> for &UnsignedLongInt {
     type Output = UnsignedLongInt;
