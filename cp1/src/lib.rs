@@ -231,6 +231,10 @@ impl UnsignedLongInt {
         result
     }
 
+    pub fn shr(&self, rhs: &Self) -> Self {
+        UnsignedLongInt::div(self, &UnsignedLongInt::from(2).pow(&rhs)).0
+    }
+
     pub fn get_allocated_bit_length(&self) -> usize {
         self.underlying_array.len() * (u64::BITS as usize)
     }
@@ -424,11 +428,11 @@ mod tests {
         let n = UnsignedLongInt::from(COUNT);
 
         let mut c = UnsignedLongInt::from(0);
-        for _ in 0..COUNT{
+        for _ in 0..COUNT {
             c = &c + &a;
         }
 
-        assert_eq!(&n*&a, c);
+        assert_eq!(&n * &a, c);
 
         Ok(())
     }
@@ -511,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn shl_digits_test() -> Result<(), Box<dyn Error>> {
+    fn shl_test() -> Result<(), Box<dyn Error>> {
         let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
         let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
 
@@ -519,6 +523,15 @@ mod tests {
         assert_eq!(a.shl(13), UnsignedLongInt::from_str("1bd5b7ddfbd5b7ddfbd5b7dde000")?);
         assert_eq!(b.shl(17), UnsignedLongInt::from_str("1579bdffdbd975bbbba0000")?);
 
+        Ok(())
+    }
+
+    #[test]
+    fn shr_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("123123123123123")?;
+        let b = UnsignedLongInt::from(0x34);
+
+        assert_eq!(a.shr(&b), UnsignedLongInt::from(18));
         Ok(())
     }
 
