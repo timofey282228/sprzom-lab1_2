@@ -20,7 +20,7 @@ impl Display for UnsignedLongInt {
             hex_string.push_str(&next_hexdigits);
         }
 
-        for i in (0..self.underlying_array.len()-1).rev() {
+        for i in (0..self.underlying_array.len() - 1).rev() {
             let next_hexdigits = format!("{:016X}", self.underlying_array[i]);
             hex_string.push_str(&next_hexdigits);
         }
@@ -202,9 +202,32 @@ impl UnsignedLongInt {
         result
     }
 
-    fn shl(&self, n: usize) -> Self {
+    pub fn shl_digits(&self, n: usize) -> Self {
         let mut result = UnsignedLongInt::from(self);
         (0..n).for_each(|_| { result.underlying_array.insert(0, 0) });
+        result
+    }
+
+    pub fn shl(&self, n: usize) -> Self {
+        let mut result = Self::empty_with_capcity(self.underlying_array.len());
+        let digit_shift = n / u64::BITS as usize;
+        let n: u32 = (n % u64::BITS as usize) as u32;
+
+        let mut carryout: u64 = 0;
+        for i in 0..self.underlying_array.len() {
+            result.underlying_array.push(
+                (self.underlying_array[i] << n)
+                    | carryout
+            );
+            carryout = u64::checked_shr(self.underlying_array[i], (u64::BITS - n)).unwrap_or(0);
+        }
+
+        if carryout != 0 {
+            result.underlying_array.push(carryout);
+        }
+
+        result = result.shl_digits(digit_shift);
+
         result
     }
 
@@ -212,20 +235,20 @@ impl UnsignedLongInt {
         self.underlying_array.len() * (u64::BITS as usize)
     }
 
-    pub fn get_highest_set_bit(&self) -> Option<usize>{
+    pub fn get_highest_set_bit(&self) -> Option<usize> {
         const HIGHEST_BIT_OF_U64: u64 = 1 << (u64::BITS - 1);
 
-        if self == &UnsignedLongInt::from(0){
+        if self == &UnsignedLongInt::from(0) {
             return None;
         }
         let allocated_bits = self.get_allocated_bit_length();
 
         let mut i = allocated_bits - 1; // this function is not expected to be used on "empty"/uninitialized bigints
-        if let Some(last) = self.underlying_array.last(){
+        if let Some(last) = self.underlying_array.last() {
             let mut d = last.to_owned();
-            while i > 0 && d & HIGHEST_BIT_OF_U64 == 0{
+            while i > 0 && d & HIGHEST_BIT_OF_U64 == 0 {
                 d <<= 1;
-                i-=1;
+                i -= 1;
             }
         }
 
@@ -243,19 +266,27 @@ impl UnsignedLongInt {
     }
 
     fn div(&self, rhs: &Self) -> (Self, Self) {
-        // let k = self.bit_length();
-        // let mut r = self;
-        // let mut q = Self::from(0);
-        // while r >= rhs{
-        //     let mut t = r.bit_length();
-        //     let mut c = rhs.shl(t-k);
-        //     if r < &c {
-        //         t = t-1;
-        //         c = c.shl(t-k);
-        //     }
-        //     r = &(r - c);
-        //     q = q + UnsignedLongInt::from(0).set_bit(t-k)
-        // }
+        if rhs == &UnsignedLongInt::from(0) {
+            panic!("division by zero");
+        }
+        if self == &UnsignedLongInt::from(0) {
+            return (UnsignedLongInt::from(0), UnsignedLongInt::from(0));
+        }
+
+        let k = self.get_highest_set_bit().expect("dividend not be null at this point") + 1;
+        let mut r = UnsignedLongInt::from(self);
+        let mut q = Self::from(0);
+        while r >= *rhs {
+            let mut t = r.get_highest_set_bit().expect("remainder must not be null at this point") + 1;
+            let mut c = rhs.shl(t - k);
+            if r < c {
+                t = t - 1;
+                c = c.shl(t - k);
+            }
+            r = (r - c);
+            q.set_bit(t - k);
+        }
+
         todo!();
     }
 }
@@ -423,6 +454,31 @@ mod tests {
         assert_eq!(&a, &a);
         assert!(&a > &(&a - &b));
         assert_ne!(a + b, UnsignedLongInt::from(0));
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_highest_set_bit_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
+        let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
+
+        assert_eq!(a.get_highest_set_bit(), Some(95));
+        assert_eq!(b.get_highest_set_bit(), Some(71));
+        assert_eq!(UnsignedLongInt::from(1).get_highest_set_bit(), Some(0));
+        assert_eq!(UnsignedLongInt::from(0).get_highest_set_bit(), None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn shl_digits_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
+        let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
+
+        assert_eq!(a.shl_digits(3), UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef000000000000000000000000000000000000000000000000")?);
+        assert_eq!(a.shl(13), UnsignedLongInt::from_str("1bd5b7ddfbd5b7ddfbd5b7dde000")?);
+        assert_eq!(b.shl(17), UnsignedLongInt::from_str("1579bdffdbd975bbbba0000")?);
 
         Ok(())
     }
