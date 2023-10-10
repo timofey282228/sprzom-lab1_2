@@ -185,7 +185,7 @@ impl UnsignedLongInt {
 
         result
     }
-    fn mul(&self, rhs: &Self) -> Self {
+    pub fn mul(&self, rhs: &Self) -> Self {
         let mut result = UnsignedLongInt::with_capacity(self.underlying_array.len());
         let (shorter, longer) = if self.underlying_array.len() > rhs.underlying_array.len()
         { (rhs, self) } else { (self, rhs) };
@@ -265,7 +265,7 @@ impl UnsignedLongInt {
         self.underlying_array[n / (u64::BITS as usize)] |= 1 << (n % (u64::BITS as usize));
     }
 
-    fn div(&self, rhs: &Self) -> (Self, Self) {
+    pub fn div(&self, rhs: &Self) -> (Self, Self) {
         if rhs == &UnsignedLongInt::from(0) {
             panic!("division by zero");
         }
