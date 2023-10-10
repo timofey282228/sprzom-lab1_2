@@ -418,6 +418,22 @@ mod tests {
     }
 
     #[test]
+    fn equality_2() -> Result<(), Box<dyn Error>> {
+        const COUNT: u64 = 4096;
+        let a = UnsignedLongInt::from_str("DEADBEEFDEADBEEFDEADBEEF")?;
+        let n = UnsignedLongInt::from(COUNT);
+
+        let mut c = UnsignedLongInt::from(0);
+        for _ in 0..COUNT{
+            c = &c + &a;
+        }
+
+        assert_eq!(&n*&a, c);
+
+        Ok(())
+    }
+
+    #[test]
     fn mul_test() -> Result<(), Box<dyn Error>> {
         let a = UnsignedLongInt::from_str("DEADBEEFDEADBEEFDEADBEEF")?;
         let b = UnsignedLongInt::from(u64::MAX);
