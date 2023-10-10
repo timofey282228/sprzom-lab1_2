@@ -266,7 +266,7 @@ impl UnsignedLongInt {
 
     pub fn get_bit(&self, n: usize) -> bool {
         let digit_size = u64::BITS as usize;
-        self.underlying_array[n/digit_size] & (1 << (n % digit_size)) != 0
+        self.underlying_array[n / digit_size] & (1 << (n % digit_size)) != 0
     }
 
     pub fn div(&self, rhs: &Self) -> (Self, Self) {
@@ -296,7 +296,21 @@ impl UnsignedLongInt {
     }
 
     pub fn pow(&self, rhs: &Self) -> Self {
-        todo!();
+        if rhs == &UnsignedLongInt::from(0) {
+            return UnsignedLongInt::from(1);
+        }
+
+        let mut result = UnsignedLongInt::from(1);
+        for i in (0..rhs.get_highest_set_bit().expect("must not be 0 at this point") + 1).rev() {
+            if rhs.get_bit(i) {
+                result = &result * self;
+            }
+            if i != 0 {
+                result = &result * &result;
+            }
+        }
+
+        result
     }
 }
 
@@ -506,7 +520,7 @@ mod tests {
     }
 
     #[test]
-    fn get_bit_test() -> Result<(), Box<dyn Error>>{
+    fn get_bit_test() -> Result<(), Box<dyn Error>> {
         let a = UnsignedLongInt::from(0x10);
         let b = UnsignedLongInt::from(0xffeeff);
         let c = UnsignedLongInt::from_str("80000000000000000")?;
@@ -517,6 +531,17 @@ mod tests {
         assert_eq!(c.get_bit(67), true);
         assert_eq!(c.get_bit(66), false);
         assert_eq!(c.get_bit(0), false);
+
+        Ok(())
+    }
+
+    #[test]
+    fn pow_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("10000000000000000")?;
+        let b = UnsignedLongInt::from_str("a")?;
+
+        let c = UnsignedLongInt::pow(&a, &b);
+        assert_eq!(c, UnsignedLongInt::from_str("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")?);
 
         Ok(())
     }
