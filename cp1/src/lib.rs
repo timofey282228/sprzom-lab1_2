@@ -340,6 +340,26 @@ impl From<u64> for UnsignedLongInt {
     }
 }
 
+impl From<&[u64]> for UnsignedLongInt {
+    /// Constructs UnsignedLongInt from a little-endian slice of u64's. Higher-order zeroes are truncated.
+    fn from(value: &[u64]) -> Self {
+        let mut result = UnsignedLongInt{underlying_array: Vec::from(value)};
+
+        // Truncate zeroes
+        let mut new_len = result.underlying_array.len();
+        while new_len > 1 {
+            if result.underlying_array[new_len - 1] > 0 {
+                break;
+            }
+            new_len -= 1;
+        }
+        result.underlying_array.truncate(new_len);
+        result.underlying_array.shrink_to_fit();
+
+        result
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct FromHexError;
 
