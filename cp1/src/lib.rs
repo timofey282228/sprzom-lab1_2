@@ -212,8 +212,24 @@ impl UnsignedLongInt {
         self.underlying_array.len() * (u64::BITS as usize)
     }
 
-    pub fn get_highest_set_bit(&self) -> usize{
-        todo!();
+    pub fn get_highest_set_bit(&self) -> Option<usize>{
+        const HIGHEST_BIT_OF_U64: u64 = 1 << (u64::BITS - 1);
+
+        if self == &UnsignedLongInt::from(0){
+            return None;
+        }
+        let allocated_bits = self.get_allocated_bit_length();
+
+        let mut i = allocated_bits - 1; // this function is not expected to be used on "empty"/uninitialized bigints
+        if let Some(last) = self.underlying_array.last(){
+            let mut d = last.to_owned();
+            while i > 0 && d & HIGHEST_BIT_OF_U64 == 0{
+                d <<= 1;
+                i-=1;
+            }
+        }
+
+        Some(i)
     }
 
 
