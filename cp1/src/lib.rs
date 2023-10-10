@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 
 pub mod ops;
 
-#[derive(Debug, Eq)]
+#[derive(Debug, Eq, Clone)]
 pub struct UnsignedLongInt {
     underlying_array: Vec<u64>,
 }
@@ -219,7 +219,7 @@ impl UnsignedLongInt {
                 (self.underlying_array[i] << n)
                     | carryout
             );
-            carryout = u64::checked_shr(self.underlying_array[i], (u64::BITS - n)).unwrap_or(0);
+            carryout = u64::checked_shr(self.underlying_array[i], u64::BITS - n).unwrap_or(0);
         }
 
         if carryout != 0 {
@@ -262,7 +262,7 @@ impl UnsignedLongInt {
             (self.underlying_array.len()..(n / (u64::BITS as usize) + 1)).for_each(|_| { self.underlying_array.push(0) })
         }
 
-        self.underlying_array[n / (u64::BITS as usize)] |= (1 << (n % (u64::BITS as usize)));
+        self.underlying_array[n / (u64::BITS as usize)] |= 1 << (n % (u64::BITS as usize));
     }
 
     fn div(&self, rhs: &Self) -> (Self, Self) {
@@ -273,21 +273,22 @@ impl UnsignedLongInt {
             return (UnsignedLongInt::from(0), UnsignedLongInt::from(0));
         }
 
-        let k = self.get_highest_set_bit().expect("dividend not be null at this point") + 1;
-        let mut r = UnsignedLongInt::from(self);
-        let mut q = Self::from(0);
-        while r >= *rhs {
-            let mut t = r.get_highest_set_bit().expect("remainder must not be null at this point") + 1;
-            let mut c = rhs.shl(t - k);
+        let b: UnsignedLongInt = rhs.clone();
+        let k = b.get_highest_set_bit().expect("must be non-0 at this point") + 1;
+        let mut r = self.clone();
+        let mut q = UnsignedLongInt::from(0);
+        while r >= b {
+            let mut t = r.get_highest_set_bit().expect("must be non-0 at this point") + 1;
+            let mut c = b.shl(t - k);
             if r < c {
                 t = t - 1;
-                c = c.shl(t - k);
+                c = b.shl(t - k);
             }
-            r = (r - c);
-            q.set_bit(t - k);
+            r = r - c;
+            q.set_bit(t-k)
         }
 
-        todo!();
+        (q, r)
     }
 }
 
@@ -479,6 +480,19 @@ mod tests {
         assert_eq!(a.shl_digits(3), UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef000000000000000000000000000000000000000000000000")?);
         assert_eq!(a.shl(13), UnsignedLongInt::from_str("1bd5b7ddfbd5b7ddfbd5b7dde000")?);
         assert_eq!(b.shl(17), UnsignedLongInt::from_str("1579bdffdbd975bbbba0000")?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn div_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
+        let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
+
+        let expected_quotient = UnsignedLongInt::from(0x14bce56);
+        let expected_remainder = UnsignedLongInt::from_str("3306e57e63acfe60b1")?;
+
+        assert_eq!(UnsignedLongInt::div(&a, &b), (expected_quotient, expected_remainder));
 
         Ok(())
     }
