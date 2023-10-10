@@ -161,7 +161,7 @@ impl UnsignedLongInt {
     pub fn sub(&self, rhs: &Self) -> Self {
         const OVERFLOW_PANIC: &str = "Subtraction with overflow";
         if let Some(result) = Self::checked_sub(self, rhs) {
-            return result;
+            result
         } else {
             panic!("{}", OVERFLOW_PANIC);
         }
@@ -232,7 +232,7 @@ impl UnsignedLongInt {
     }
 
     pub fn shr(&self, rhs: &Self) -> Self {
-        UnsignedLongInt::div(self, &UnsignedLongInt::from(2).pow(&rhs)).0
+        UnsignedLongInt::div(self, &UnsignedLongInt::from(2).pow(rhs)).0
     }
 
     pub fn get_allocated_bit_length(&self) -> usize {
@@ -289,7 +289,7 @@ impl UnsignedLongInt {
             let mut t = r.get_highest_set_bit().expect("must be non-0 at this point") + 1;
             let mut c = b.shl(t - k);
             if r < c {
-                t = t - 1;
+                t -= 1;
                 c = b.shl(t - k);
             }
             r = r - c;
@@ -409,12 +409,12 @@ impl PartialOrd for UnsignedLongInt {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if let Some(differenece) = UnsignedLongInt::checked_sub(self, other) {
             if differenece.underlying_array.len() == 1 && differenece.underlying_array[0] == 0 {
-                return Some(Ordering::Equal);
+                Some(Ordering::Equal)
             } else {
-                return Some(Ordering::Greater);
+                Some(Ordering::Greater)
             }
         } else {
-            return Some(Ordering::Less);
+            Some(Ordering::Less)
         }
     }
 }
@@ -575,11 +575,11 @@ mod tests {
         let c = UnsignedLongInt::from_str("80000000000000000")?;
 
         dbg!(&a);
-        assert_eq!(a.get_bit(4), true);
-        assert_eq!(b.get_bit(8), false);
-        assert_eq!(c.get_bit(67), true);
-        assert_eq!(c.get_bit(66), false);
-        assert_eq!(c.get_bit(0), false);
+        assert!(a.get_bit(4));
+        assert!(!b.get_bit(8));
+        assert!(c.get_bit(67));
+        assert!(!c.get_bit(66));
+        assert!(!c.get_bit(0));
 
         Ok(())
     }
