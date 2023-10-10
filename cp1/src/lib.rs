@@ -13,8 +13,15 @@ pub struct UnsignedLongInt {
 impl Display for UnsignedLongInt {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut hex_string = String::new();
-        for i in (0..self.underlying_array.len()).rev() {
-            let next_hexdigits = format!("{:X}", self.underlying_array[i]);
+
+        // special handling of the most significant digit for 0x prefix and zeroes truncation
+        if let Some(last) = self.underlying_array.last() {
+            let next_hexdigits = format!("{:#0X}", last);
+            hex_string.push_str(&next_hexdigits);
+        }
+
+        for i in (0..self.underlying_array.len()-1).rev() {
+            let next_hexdigits = format!("{:016X}", self.underlying_array[i]);
             hex_string.push_str(&next_hexdigits);
         }
 
@@ -151,12 +158,11 @@ impl UnsignedLongInt {
         Some(result)
     }
 
-    pub fn sub(&self, rhs:&Self) -> Self{
+    pub fn sub(&self, rhs: &Self) -> Self {
         const OVERFLOW_PANIC: &str = "Subtraction with overflow";
-        if let Some(result) = Self::checked_sub(self, rhs){
-            return result
-        }
-        else{
+        if let Some(result) = Self::checked_sub(self, rhs) {
+            return result;
+        } else {
             panic!("{}", OVERFLOW_PANIC);
         }
     }
@@ -196,17 +202,44 @@ impl UnsignedLongInt {
         result
     }
 
-    fn shl(&mut self, n: usize){
-        (0..n).for_each(|_|{self.underlying_array.insert(0,0)});
+    fn shl(&self, n: usize) -> Self {
+        let mut result = UnsignedLongInt::from(self);
+        (0..n).for_each(|_| { result.underlying_array.insert(0, 0) });
+        result
     }
 
-    fn div(&self, rhs: &Self) -> (Self, Self){
-        let k = self.num_digits();
-        let r = self;
-        let q = Self::new();
-        while r >= rhs{
+    pub fn get_allocated_bit_length(&self) -> usize {
+        self.underlying_array.len() * (u64::BITS as usize)
+    }
 
+    pub fn get_highest_set_bit(&self) -> usize{
+        todo!();
+    }
+
+
+    pub fn set_bit(&mut self, n: usize) {
+        // extend the underlying array if needed
+        if n >= self.underlying_array.len() * u64::BITS as usize {
+            (self.underlying_array.len()..(n / (u64::BITS as usize) + 1)).for_each(|_| { self.underlying_array.push(0) })
         }
+
+        self.underlying_array[n / (u64::BITS as usize)] |= (1 << (n % (u64::BITS as usize)));
+    }
+
+    fn div(&self, rhs: &Self) -> (Self, Self) {
+        // let k = self.bit_length();
+        // let mut r = self;
+        // let mut q = Self::from(0);
+        // while r >= rhs{
+        //     let mut t = r.bit_length();
+        //     let mut c = rhs.shl(t-k);
+        //     if r < &c {
+        //         t = t-1;
+        //         c = c.shl(t-k);
+        //     }
+        //     r = &(r - c);
+        //     q = q + UnsignedLongInt::from(0).set_bit(t-k)
+        // }
         todo!();
     }
 }
@@ -214,6 +247,14 @@ impl UnsignedLongInt {
 impl Default for UnsignedLongInt {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl From<&Self> for UnsignedLongInt {
+    fn from(value: &Self) -> Self {
+        UnsignedLongInt {
+            underlying_array: value.underlying_array.clone()
+        }
     }
 }
 
@@ -264,28 +305,27 @@ impl FromStr for UnsignedLongInt {
     }
 }
 
-impl PartialEq for UnsignedLongInt{
+impl PartialEq for UnsignedLongInt {
     fn eq(&self, other: &Self) -> bool {
         self.underlying_array == other.underlying_array
     }
 }
 
-impl PartialOrd for UnsignedLongInt{
+impl PartialOrd for UnsignedLongInt {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-       if let Some(differenece) = UnsignedLongInt::checked_sub(self, other){
-           if differenece.underlying_array.len() == 1 && differenece.underlying_array[0] == 0{
-               return Some(Ordering::Equal);
-           }else{
-               return Some(Ordering::Greater);
-           }
-       }
-        else{
+        if let Some(differenece) = UnsignedLongInt::checked_sub(self, other) {
+            if differenece.underlying_array.len() == 1 && differenece.underlying_array[0] == 0 {
+                return Some(Ordering::Equal);
+            } else {
+                return Some(Ordering::Greater);
+            }
+        } else {
             return Some(Ordering::Less);
         }
     }
 }
 
-impl Ord for UnsignedLongInt{
+impl Ord for UnsignedLongInt {
     fn cmp(&self, other: &Self) -> Ordering {
         UnsignedLongInt::partial_cmp(self, other).expect("implementation ensures strict total ordering")
     }
@@ -349,7 +389,7 @@ mod tests {
     fn sub_test() -> Result<(), Box<dyn Error>> {
         let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
         let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
-        let c =  &a - &b;
+        let c = &a - &b;
         let expected = UnsignedLongInt::from_str("deadbe4410bdc01112ffe112")?;
         println!("A: {}\nB: {}\nC: {}\nShould be: {}", &a, &b, &c, &expected);
         assert_eq!(c, expected);
@@ -358,18 +398,16 @@ mod tests {
     }
 
     #[test]
-    fn ordering_test()-> Result<(), Box<dyn Error>> {
+    fn ordering_test() -> Result<(), Box<dyn Error>> {
         let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
         let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
 
         assert!(&a > &b);
         assert!(&a >= &b);
         assert_eq!(&a, &a);
-        assert!(&a > &(&a-&b));
-        assert_ne!(a+b, UnsignedLongInt::from(0));
+        assert!(&a > &(&a - &b));
+        assert_ne!(a + b, UnsignedLongInt::from(0));
 
         Ok(())
-
-
     }
 }
