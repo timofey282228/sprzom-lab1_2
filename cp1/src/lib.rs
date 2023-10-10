@@ -1,10 +1,11 @@
 use core::str::FromStr;
+use std::cmp::{PartialEq, PartialOrd, Eq, Ord, Ordering};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 pub mod ops;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq)]
 pub struct UnsignedLongInt {
     underlying_array: Vec<u64>,
 }
@@ -96,13 +97,12 @@ impl UnsignedLongInt {
         result
     }
 
-    fn sub(&self, rhs: &Self) -> Self {
-        const OVERFLOW_PANIC: &str = "Subtraction with overflow";
+    pub fn checked_sub(&self, rhs: &Self) -> Option<Self> {
         let (subtrahend, minuend) = (rhs, self);
 
         // if minuend is shorter than subtrahend, then it's obviously smaller
         if minuend.underlying_array.len() < subtrahend.underlying_array.len() {
-            panic!("{}", OVERFLOW_PANIC);
+            return None;
         }
 
         // assume the best minimum length to minimize reallocations in the future
@@ -134,7 +134,7 @@ impl UnsignedLongInt {
         }
 
         if borrow {
-            panic!("{}", OVERFLOW_PANIC);
+            return None;
         }
 
         // Truncate zeroes
@@ -148,7 +148,17 @@ impl UnsignedLongInt {
 
         result.underlying_array.truncate(new_len);
         result.underlying_array.shrink_to_fit();
-        result
+        Some(result)
+    }
+
+    pub fn sub(&self, rhs:&Self) -> Self{
+        const OVERFLOW_PANIC: &str = "Subtraction with overflow";
+        if let Some(result) = Self::checked_sub(self, rhs){
+            return result
+        }
+        else{
+            panic!("{}", OVERFLOW_PANIC);
+        }
     }
 
     pub fn mul_single_digit(&self, rhs: u64) -> Self {
@@ -184,6 +194,20 @@ impl UnsignedLongInt {
         }
 
         result
+    }
+
+    fn shl(&mut self, n: usize){
+        (0..n).for_each(|_|{self.underlying_array.insert(0,0)});
+    }
+
+    fn div(&self, rhs: &Self) -> (Self, Self){
+        let k = self.num_digits();
+        let r = self;
+        let q = Self::new();
+        while r >= rhs{
+
+        }
+        todo!();
     }
 }
 
@@ -237,6 +261,33 @@ impl FromStr for UnsignedLongInt {
         }
 
         Ok(result)
+    }
+}
+
+impl PartialEq for UnsignedLongInt{
+    fn eq(&self, other: &Self) -> bool {
+        self.underlying_array == other.underlying_array
+    }
+}
+
+impl PartialOrd for UnsignedLongInt{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+       if let Some(differenece) = UnsignedLongInt::checked_sub(self, other){
+           if differenece.underlying_array.len() == 1 && differenece.underlying_array[0] == 0{
+               return Some(Ordering::Equal);
+           }else{
+               return Some(Ordering::Greater);
+           }
+       }
+        else{
+            return Some(Ordering::Less);
+        }
+    }
+}
+
+impl Ord for UnsignedLongInt{
+    fn cmp(&self, other: &Self) -> Ordering {
+        UnsignedLongInt::partial_cmp(self, other).expect("implementation ensures strict total ordering")
     }
 }
 
@@ -304,5 +355,21 @@ mod tests {
         assert_eq!(c, expected);
 
         Ok(())
+    }
+
+    #[test]
+    fn ordering_test()-> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("deadbeefdeadbeefdeadbeef")?;
+        let b = UnsignedLongInt::from_str("abcdeffedecbaddddd")?;
+
+        assert!(&a > &b);
+        assert!(&a >= &b);
+        assert_eq!(&a, &a);
+        assert!(&a > &(&a-&b));
+        assert_ne!(a+b, UnsignedLongInt::from(0));
+
+        Ok(())
+
+
     }
 }
