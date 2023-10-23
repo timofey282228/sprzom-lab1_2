@@ -66,29 +66,20 @@ impl UnsignedLongInt {
         let mut current_digit = 0usize;
 
         while current_digit < shorter.underlying_array.len() {
-            let mut new_digit: u64 = shorter.underlying_array[current_digit];
-            let mut temp_carry1: bool = false; // carry from carry addition
-            let temp_carry2: bool; // carry from `longer` digit addition
+            // see comments for `fn checked_sub`, same applies here
+            let (mut new_digit, other_carry) = longer.underlying_array[current_digit]
+                .overflowing_add(shorter.underlying_array[current_digit]);
 
-            // add carry from the previous operation
-            if carry {
-                (new_digit, temp_carry1) = new_digit.overflowing_add(1);
-            }
+            (new_digit, carry) = new_digit.overflowing_add(if carry {1} else {0});
 
-            // add digit of the other number
-            (new_digit, temp_carry2) = new_digit.overflowing_add(longer.underlying_array[current_digit]);
-
-            // carry on next operation?
-            carry = temp_carry1 | temp_carry2;
+            carry |= other_carry;
 
             result.underlying_array.push(new_digit);
-
             current_digit += 1;
         }
 
         for current_digit in current_digit..longer.underlying_array.len() {
             let mut new_digit: u64 = if carry { 1 } else { 0 };
-
 
             // add digit of the other number
             (new_digit, carry) = new_digit.overflowing_add(longer.underlying_array[current_digit]);
@@ -114,21 +105,23 @@ impl UnsignedLongInt {
 
         // assume the best minimum length to minimize reallocations in the future
         let mut result = Self::empty_with_capcity(minuend.num_digits());
-
         let mut borrow: bool = false;
         let mut current_digit = 0usize;
 
         while current_digit < subtrahend.underlying_array.len() {
-            let mut new_digit: u64 = minuend.underlying_array[current_digit];
-            let mut temp_borrow1: bool = false;
-            let temp_borrow2: bool;
+            // we will need a separate borrow for two subtractions - the digit
+            // and the borrow from previous sub
+            let (mut new_digit, other_borrow) = minuend.underlying_array[current_digit]
+                .overflowing_sub(subtrahend.underlying_array[current_digit]);
 
-            if borrow {
-                (new_digit, temp_borrow1) = new_digit.overflowing_sub(1);
-            }
+            // we can never be sure that the new digit is not zero, consider 121 - 22
+            (new_digit, borrow) = new_digit.overflowing_sub(if borrow { 1 } else { 0 });
 
-            (new_digit, temp_borrow2) = new_digit.overflowing_sub(subtrahend.underlying_array[current_digit]);
-            borrow = temp_borrow1 | temp_borrow2;
+            // we borrow from the mores significant digit either
+            // when we subtract the next digit of the minuend
+            // or when we subtract the previous borrow
+            borrow |= other_borrow;
+
             result.underlying_array.push(new_digit);
             current_digit += 1;
         }
@@ -343,7 +336,7 @@ impl From<u64> for UnsignedLongInt {
 impl From<&[u64]> for UnsignedLongInt {
     /// Constructs UnsignedLongInt from a little-endian slice of u64's. Higher-order zeroes are truncated.
     fn from(value: &[u64]) -> Self {
-        let mut result = UnsignedLongInt{underlying_array: Vec::from(value)};
+        let mut result = UnsignedLongInt { underlying_array: Vec::from(value) };
 
         // Truncate zeroes
         let mut new_len = result.underlying_array.len();
@@ -427,6 +420,7 @@ impl Ord for UnsignedLongInt {
 
 #[cfg(test)]
 mod tests {
+    use std::ffi::FromBytesUntilNulError;
     use super::*;
 
     #[test]
@@ -592,6 +586,17 @@ mod tests {
         let c = UnsignedLongInt::pow(&a, &b);
         assert_eq!(c, UnsignedLongInt::from_str("10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")?);
 
+        Ok(())
+    }
+
+    #[test]
+    fn sub2_test() -> Result<(), Box<dyn Error>> {
+        let a = UnsignedLongInt::from_str("100000000000000000000000000000001")?;
+        let b = UnsignedLongInt::from_str("10000000000000002")?;
+
+        let expected = UnsignedLongInt::from_str("FFFFFFFFFFFFFFFEFFFFFFFFFFFFFFFF")?;
+
+        assert_eq!(&a - &b, expected);
         Ok(())
     }
 }
