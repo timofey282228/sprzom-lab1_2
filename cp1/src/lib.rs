@@ -1,7 +1,9 @@
 use core::str::FromStr;
 use std::cmp::{PartialEq, PartialOrd, Eq, Ord, Ordering};
+use std::collections::VecDeque;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
+use once_cell::sync::Lazy;
 
 pub mod ops;
 
@@ -70,7 +72,7 @@ impl UnsignedLongInt {
             let (mut new_digit, other_carry) = longer.underlying_array[current_digit]
                 .overflowing_add(shorter.underlying_array[current_digit]);
 
-            (new_digit, carry) = new_digit.overflowing_add(if carry {1} else {0});
+            (new_digit, carry) = new_digit.overflowing_add(if carry { 1 } else { 0 });
 
             carry |= other_carry;
 
@@ -201,6 +203,19 @@ impl UnsignedLongInt {
         result
     }
 
+    pub fn shr_digits(&self, n: usize) -> Self {
+        if n > self.underlying_array.len() {
+            return UnsignedLongInt::from(0);
+        }
+
+        let mut result = UnsignedLongInt::from(self);
+
+        for _ in 0..n {
+            result.underlying_array.remove(0);
+        }
+
+        result
+    }
     pub fn shl(&self, n: usize) -> Self {
         let mut result = Self::empty_with_capcity(self.underlying_array.len());
         let digit_shift = n / u64::BITS as usize;
@@ -420,7 +435,6 @@ impl Ord for UnsignedLongInt {
 
 #[cfg(test)]
 mod tests {
-    use std::ffi::FromBytesUntilNulError;
     use super::*;
 
     #[test]
@@ -600,3 +614,5 @@ mod tests {
         Ok(())
     }
 }
+
+pub static BASE: Lazy<UnsignedLongInt> = Lazy::new(|| UnsignedLongInt::from([0, 1].as_slice()));
